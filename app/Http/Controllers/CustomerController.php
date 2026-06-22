@@ -2,14 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCustomerRequest;
+use App\Http\Requests\UpdateCustomerRequest;
 use App\Models\Customer;
-use Illuminate\Http\Request;
+use App\Repositories\Contracts\CustomerRepositoryInterface;
+use App\Services\CustomerService;
 
 class CustomerController extends Controller
 {
+    public function __construct(
+        private readonly CustomerRepositoryInterface $customers,
+        private readonly CustomerService             $customerService,
+    ) {}
+
     public function index()
     {
-        $customers = Customer::withCount('invoices')->latest()->paginate(15);
+        $customers = $this->customers->paginate(15);
+
         return view('customers.index', compact('customers'));
     }
 
@@ -18,24 +27,13 @@ class CustomerController extends Controller
         return view('customers.create');
     }
 
-    public function store(Request $request)
+    public function store(StoreCustomerRequest $request)
     {
-        $request->validate([
-            'name'       => 'required|string|max:255',
-            'phone'      => 'nullable|string|max:20',
-            'email'      => 'nullable|email|max:255',
-            'address'    => 'nullable|string',
-            'tax_number' => 'nullable|string|max:50',
-        ]);
+        $this->customerService->store($request->validated());
 
-        Customer::create($request->only('name', 'phone', 'email', 'address', 'tax_number'));
-        return redirect()->route('customers.index')->with('success', 'تم إضافة العميل بنجاح');
-    }
-
-    public function show(Customer $customer)
-    {
-        $invoices = $customer->invoices()->latest()->paginate(10);
-        return view('customers.show', compact('customer', 'invoices'));
+        return redirect()
+            ->route('customers.index')
+            ->with('success', 'تم إضافة العميل بنجاح');
     }
 
     public function edit(Customer $customer)
@@ -43,23 +41,21 @@ class CustomerController extends Controller
         return view('customers.edit', compact('customer'));
     }
 
-    public function update(Request $request, Customer $customer)
+    public function update(UpdateCustomerRequest $request, Customer $customer)
     {
-        $request->validate([
-            'name'       => 'required|string|max:255',
-            'phone'      => 'nullable|string|max:20',
-            'email'      => 'nullable|email|max:255',
-            'address'    => 'nullable|string',
-            'tax_number' => 'nullable|string|max:50',
-        ]);
+        $this->customerService->update($customer, $request->validated());
 
-        $customer->update($request->only('name', 'phone', 'email', 'address', 'tax_number'));
-        return redirect()->route('customers.index')->with('success', 'تم التحديث بنجاح');
+        return redirect()
+            ->route('customers.index')
+            ->with('success', 'تم تحديث بيانات العميل بنجاح');
     }
 
     public function destroy(Customer $customer)
     {
-        $customer->delete();
-        return redirect()->route('customers.index')->with('success', 'تم الحذف بنجاح');
+        $this->customerService->delete($customer);
+
+        return redirect()
+            ->route('customers.index')
+            ->with('success', 'تم حذف العميل بنجاح');
     }
 }
