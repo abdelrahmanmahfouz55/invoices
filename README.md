@@ -19,7 +19,7 @@ Supports invoices and quotations, dynamic line items, server-side calculations, 
 
 ---
 
-## 🏗️ Project Structure
+## 🏗️ Project Structure.
 
 ```
 app/
