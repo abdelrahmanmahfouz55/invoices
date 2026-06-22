@@ -5,30 +5,28 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreInvoiceRequest;
 use App\Http\Requests\UpdateInvoiceRequest;
 use App\Models\Invoice;
-use App\Repositories\Contracts\CustomerRepositoryInterface;
-use App\Repositories\Contracts\InvoiceRepositoryInterface;
+use App\Services\CustomerService;
 use App\Services\InvoiceService;
 use Mpdf\Mpdf;
 
 class InvoiceController extends Controller
 {
     public function __construct(
-        private readonly InvoiceRepositoryInterface  $invoices,
-        private readonly CustomerRepositoryInterface $customers,
-        private readonly InvoiceService              $invoiceService,
+        private readonly InvoiceService  $invoiceService,
+        private readonly CustomerService $customerService,
     ) {}
 
     public function index()
     {
-        $invoices = $this->invoices->paginate(15);
-        $stats    = $this->invoiceService->getStats();
+        $invoices = $this->invoiceService->list();
+        $stats    = $this->invoiceService->stats();
 
         return view('invoices.index', compact('invoices', 'stats'));
     }
 
     public function create()
     {
-        $customers = $this->customers->all();
+        $customers = $this->customerService->all();
 
         return view('invoices.create', compact('customers'));
     }
@@ -44,15 +42,15 @@ class InvoiceController extends Controller
 
     public function show(Invoice $invoice)
     {
-        $invoice = $this->invoices->findWithRelations($invoice->id);
+        $invoice = $this->invoiceService->find($invoice->id);
 
         return view('invoices.show', compact('invoice'));
     }
 
     public function edit(Invoice $invoice)
     {
-        $invoice   = $this->invoices->findWithRelations($invoice->id);
-        $customers = $this->customers->all();
+        $invoice   = $this->invoiceService->find($invoice->id);
+        $customers = $this->customerService->all();
 
         return view('invoices.edit', compact('invoice', 'customers'));
     }
@@ -77,7 +75,7 @@ class InvoiceController extends Controller
 
     public function pdf(Invoice $invoice)
     {
-        $invoice = $this->invoices->findWithRelations($invoice->id);
+        $invoice = $this->invoiceService->find($invoice->id);
         $html    = view('invoices.pdf', compact('invoice'))->render();
 
         $mpdf = new Mpdf([

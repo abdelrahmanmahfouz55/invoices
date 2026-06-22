@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,6 +20,8 @@ class Invoice extends Model
         'due_date'   => 'date',
     ];
 
+    // ── Relationships ──────────────────────────────────────────────
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
@@ -28,6 +31,25 @@ class Invoice extends Model
     {
         return $this->hasMany(InvoiceItem::class);
     }
+
+    // ── Scopes ─────────────────────────────────────────────────────
+
+    public function scopeOfType(Builder $query, string $type): Builder
+    {
+        return $query->where('type', $type);
+    }
+
+    public function scopeOfStatus(Builder $query, string $status): Builder
+    {
+        return $query->where('status', $status);
+    }
+
+    public function scopeWithSummary(Builder $query): Builder
+    {
+        return $query->with('customer');
+    }
+
+    // ── Accessors / Helpers ────────────────────────────────────────
 
     public function getTypeLabel(): string
     {
@@ -49,7 +71,8 @@ class Invoice extends Model
     {
         $prefix = $type === 'quote' ? 'QT' : 'INV';
         $year   = now()->format('Y');
-        $last   = self::where('type', $type)->whereYear('created_at', $year)->count() + 1;
-        return $prefix . '-' . $year . '-' . str_pad($last, 4, '0', STR_PAD_LEFT);
+        $count  = self::ofType($type)->whereYear('created_at', $year)->count() + 1;
+
+        return $prefix . '-' . $year . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
     }
 }

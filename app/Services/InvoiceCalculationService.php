@@ -4,21 +4,21 @@ namespace App\Services;
 
 /**
  * Pure calculation logic — no DB, no side effects.
- * Input: raw items array + tax rate.
- * Output: CalculationResult DTO.
+ * Input : raw items array + tax rate percentage.
+ * Output: CalculationResult value object.
  */
 class InvoiceCalculationService
 {
     public function calculate(array $items, float $taxRate): CalculationResult
     {
-        $subtotal       = 0.0;
-        $totalDiscount  = 0.0;
-        $processedItems = [];
+        $subtotal      = 0.0;
+        $totalDiscount = 0.0;
+        $processed     = [];
 
         foreach ($items as $row) {
-            $qty      = (float) ($row['quantity']         ?? 0);
-            $price    = (float) ($row['unit_price']       ?? 0);
-            $discPct  = (float) ($row['discount_percent'] ?? 0);
+            $qty     = (float) ($row['quantity']         ?? 0);
+            $price   = (float) ($row['unit_price']       ?? 0);
+            $discPct = (float) ($row['discount_percent'] ?? 0);
 
             $lineGross    = $qty * $price;
             $lineDiscount = $lineGross * $discPct / 100;
@@ -27,7 +27,7 @@ class InvoiceCalculationService
             $subtotal      += $lineGross;
             $totalDiscount += $lineDiscount;
 
-            $processedItems[] = [
+            $processed[] = [
                 'description'      => $row['description'],
                 'quantity'         => $qty,
                 'unit_price'       => $price,
@@ -36,9 +36,9 @@ class InvoiceCalculationService
             ];
         }
 
-        $taxableAmount = $subtotal - $totalDiscount;
-        $taxAmount     = $taxableAmount * $taxRate / 100;
-        $grandTotal    = $taxableAmount + $taxAmount;
+        $taxable    = $subtotal - $totalDiscount;
+        $taxAmount  = $taxable * $taxRate / 100;
+        $grandTotal = $taxable + $taxAmount;
 
         return new CalculationResult(
             subtotal:       round($subtotal, 2),
@@ -46,13 +46,13 @@ class InvoiceCalculationService
             taxRate:        $taxRate,
             taxAmount:      round($taxAmount, 2),
             total:          round($grandTotal, 2),
-            items:          $processedItems,
+            items:          $processed,
         );
     }
 }
 
 /**
- * Immutable value object carrying all calculation results.
+ * Immutable DTO — carries all calculation output.
  */
 readonly class CalculationResult
 {
@@ -65,7 +65,7 @@ readonly class CalculationResult
         public array $items,
     ) {}
 
-    public function toInvoiceArray(): array
+    public function toArray(): array
     {
         return [
             'subtotal'        => $this->subtotal,

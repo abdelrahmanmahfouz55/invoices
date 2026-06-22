@@ -5,19 +5,17 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\UpdateCustomerRequest;
 use App\Models\Customer;
-use App\Repositories\Contracts\CustomerRepositoryInterface;
 use App\Services\CustomerService;
 
 class CustomerController extends Controller
 {
     public function __construct(
-        private readonly CustomerRepositoryInterface $customers,
-        private readonly CustomerService             $customerService,
+        private readonly CustomerService $customerService,
     ) {}
 
     public function index()
     {
-        $customers = $this->customers->paginate(15);
+        $customers = $this->customerService->list();
 
         return view('customers.index', compact('customers'));
     }

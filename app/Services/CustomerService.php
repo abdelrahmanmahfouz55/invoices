@@ -3,26 +3,34 @@
 namespace App\Services;
 
 use App\Models\Customer;
-use App\Repositories\Contracts\CustomerRepositoryInterface;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class CustomerService
 {
-    public function __construct(
-        private readonly CustomerRepositoryInterface $customers,
-    ) {}
+    public function list(int $perPage = 15): LengthAwarePaginator
+    {
+        return Customer::withCount('invoices')->latest()->paginate($perPage);
+    }
+
+    public function all(): Collection
+    {
+        return Customer::orderBy('name')->get();
+    }
 
     public function store(array $validated): Customer
     {
-        return $this->customers->create($validated);
+        return Customer::create($validated);
     }
 
     public function update(Customer $customer, array $validated): Customer
     {
-        return $this->customers->update($customer, $validated);
+        $customer->update($validated);
+        return $customer->fresh();
     }
 
     public function delete(Customer $customer): void
     {
-        $this->customers->delete($customer);
+        $customer->delete();
     }
 }

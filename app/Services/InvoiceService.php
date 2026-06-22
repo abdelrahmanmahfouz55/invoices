@@ -3,38 +3,45 @@
 namespace App\Services;
 
 use App\Models\Invoice;
-use App\Repositories\Contracts\InvoiceRepositoryInterface;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class InvoiceService
 {
     public function __construct(
-        private readonly InvoiceRepositoryInterface    $invoices,
         private readonly InvoiceCalculationService $calculator,
     ) {}
+
+    public function list(int $perPage = 15): LengthAwarePaginator
+    {
+        return Invoice::withSummary()->latest()->paginate($perPage);
+    }
+
+    public function find(int $id): Invoice
+    {
+        return Invoice::with('customer', 'items')->findOrFail($id);
+    }
 
     public function store(array $validated): Invoice
     {
         $calc = $this->calculator->calculate(
             $validated['items'],
-            (float) $validated['tax_rate']
+            (float) $validated['tax_rate'],
         );
 
         return DB::transaction(function () use ($validated, $calc) {
-            $invoice = $this->invoices->create([
-                'invoice_number'  => Invoice::generateNumber($validated['type']),
-                'customer_id'     => $validated['customer_id'],
-                'type'            => $validated['type'],
-                'issue_date'      => $validated['issue_date'],
-                'due_date'        => $validated['due_date'] ?? null,
-                'notes'           => $validated['notes']    ?? null,
-                'status'          => 'draft',
-                ...$calc->toInvoiceArray(),
+            $invoice = Invoice::create([
+                'invoice_number' => Invoice::generateNumber($validated['type']),
+                'customer_id'    => $validated['customer_id'],
+                'type'           => $validated['type'],
+                'issue_date'     => $validated['issue_date'],
+                'due_date'       => $validated['due_date']  ?? null,
+                'notes'          => $validated['notes']     ?? null,
+                'status'         => 'draft',
+                ...$calc->toArray(),
             ]);
 
-            foreach ($calc->items as $item) {
-                $invoice->items()->create($item);
-            }
+            $invoice->items()->createMany($calc->items);
 
             return $invoice;
         });
@@ -44,41 +51,38 @@ class InvoiceService
     {
         $calc = $this->calculator->calculate(
             $validated['items'],
-            (float) $validated['tax_rate']
+            (float) $validated['tax_rate'],
         );
 
         return DB::transaction(function () use ($invoice, $validated, $calc) {
-            $updated = $this->invoices->update($invoice, [
+            $invoice->update([
                 'customer_id' => $validated['customer_id'],
                 'type'        => $validated['type'],
                 'issue_date'  => $validated['issue_date'],
                 'due_date'    => $validated['due_date'] ?? null,
                 'notes'       => $validated['notes']    ?? null,
-                ...$calc->toInvoiceArray(),
+                ...$calc->toArray(),
             ]);
 
-            $updated->items()->delete();
+            $invoice->items()->delete();
+            $invoice->items()->createMany($calc->items);
 
-            foreach ($calc->items as $item) {
-                $updated->items()->create($item);
-            }
-
-            return $updated;
+            return $invoice->fresh('customer', 'items');
         });
     }
 
     public function delete(Invoice $invoice): void
     {
-        $this->invoices->delete($invoice);
+        $invoice->delete();
     }
 
-    public function getStats(): array
+    public function stats(): array
     {
         return [
-            'total'   => $this->invoices->paginate(1)->total(),
-            'paid'    => $this->invoices->countByStatus('paid'),
-            'draft'   => $this->invoices->countByStatus('draft'),
-            'revenue' => $this->invoices->sumByStatus('paid'),
+            'total'   => Invoice::count(),
+            'paid'    => Invoice::ofStatus('paid')->count(),
+            'draft'   => Invoice::ofStatus('draft')->count(),
+            'revenue' => (float) Invoice::ofStatus('paid')->sum('total'),
         ];
     }
 }
