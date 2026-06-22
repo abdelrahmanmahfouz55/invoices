@@ -18,6 +18,7 @@ class Invoice extends Model
     protected $casts = [
         'issue_date' => 'date',
         'due_date'   => 'date',
+        'tax_amount'=>'float'
     ];
 
     // ── Relationships ──────────────────────────────────────────────
